@@ -1,0 +1,5 @@
+namespace OFX {
+class Binary {
+
+};
+}
