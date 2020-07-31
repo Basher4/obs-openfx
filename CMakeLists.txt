@@ -5,6 +5,8 @@ set(MODULE_DESCRIPTION "OBS OpenFX Host")
 set(obs-openfx_SOURCES
     obs-openfx.c
     "ofx-obs/ofx-source.cpp"
+    "ofx-host/ofxBinary.cpp"
+    "ofx-host/ofxBinaryDiscovery.cpp"
 )
 
 set(obs-openfx_HEADERS
@@ -37,6 +39,7 @@ add_library(obs-openfx MODULE
 )
 target_link_libraries(obs-openfx
     libobs
+    Qt5::Core
 )
 
 set_target_properties(obs-openfx PROPERTIES FOLDER "plugins")
