@@ -1,9 +1,9 @@
 #include "ofxBinary.h"
 
 namespace OFX {
-Binary::Binary(const std::wstring& binaryPath) :
+Binary::Binary(const QString& binaryPath) :
 	binaryPath(binaryPath),
-	library(QString::fromStdWString(binaryPath))
+	library(binaryPath)
 {
 	// OfxSetHost isn't defined in older versions of the API (pre-2020).
 	fn_OfxSetHost = library.resolve("OfxSetHost");

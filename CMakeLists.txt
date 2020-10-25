@@ -11,7 +11,9 @@ set(obs-openfx_SOURCES
 
 set(obs-openfx_HEADERS
     "ofx-obs/ofx-source.h"
-)
+    "ofx-host/ofxBinary.h"
+    "ofx-host/ofxBinaryDiscovery.h"
+ )
 
 set(obs-openfx_OFX_HEADERS
     "openfx/ofxCore.h"

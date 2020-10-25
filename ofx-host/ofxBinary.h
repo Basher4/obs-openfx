@@ -13,7 +13,7 @@ protected:
 	bool isHostSet = false;
 
 	QLibrary library;
-	std::wstring binaryPath;
+	QString binaryPath;
 
 	QFunctionPointer fn_OfxSetHost;
 	QFunctionPointer fn_OfxGetNumberOfPlugins;
@@ -22,11 +22,11 @@ protected:
 	std::list<OfxPlugin *> pluginCache;
 
 public:
-	Binary(const std::wstring &binaryPath);
+	Binary(const QString &binaryPath);
 	~Binary() = default;
 
 	// Path to the file.
-	const std::wstring &getBinaryPath() const { return binaryPath; }
+	const QString &getBinaryPath() const { return binaryPath; }
 
 	// Exported functions.
 	OfxStatus OfxSetHost(const OfxHost *host);

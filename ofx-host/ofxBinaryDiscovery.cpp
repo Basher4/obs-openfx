@@ -1,5 +1,6 @@
 #include "ofxBinaryDiscovery.h"
 
+#include <qdebug.h>
 #include <qbytearray.h>
 #include <qdir.h>
 #include <qdiriterator.h>
@@ -10,9 +11,17 @@
 namespace OFX {
 BinaryDiscovery::BinaryDiscovery()
 {
-	QString ofxEnv = qEnvironmentVariable(env_ofxPluginPath.c_str());
-	pathsToConsider = ofxEnv.split(";");
-	pathsToConsider.append(QString::fromStdWString(defaultPath));
+	InitDefaultArchPath();
+	assert(!defaultPath.isEmpty());
+	assert(!archName.isEmpty());
+
+	QString ofxEnv =
+		qEnvironmentVariable(env_ofxPluginPath.toStdString().c_str());
+	if (!ofxEnv.isEmpty()) {
+		pathsToConsider = ofxEnv.split(";");
+	}
+
+	pathsToConsider.append(defaultPath);
 }
 
 void BinaryDiscovery::AddPath(const std::wstring &path)
@@ -20,17 +29,22 @@ void BinaryDiscovery::AddPath(const std::wstring &path)
 	pathsToConsider.append(QString::fromStdWString(path));
 }
 
-int BinaryDiscovery::GetAllBinaries(
-	std::list<std::unique_ptr<Binary>> &outPlugins)
+int BinaryDiscovery::GetAllBinaries(BinaryList &outPlugins)
 {
 	int numPlugins = 0;
 
 	for (QString path : pathsToConsider) {
-		// Iterate through all ofx.bundle subdirectories.
-		QDirIterator it(path, QStringList() << "*.ofx.bundle", QDir::Dirs);
+		QDirIterator it(path);
 
 		while (it.hasNext()) {
-			QDir subdir(it.next());
+			auto subdirName = it.next();
+			if (subdirName.endsWith("/.") ||
+			    subdirName.endsWith("/..")) {
+				continue;
+			}
+
+			QDir subdir(subdirName);
+			qDebug() << "Traversing directory" << subdir.absolutePath();
 			numPlugins += ParseOfxDirectory(subdir, outPlugins);
 		}
 	}
@@ -38,25 +52,59 @@ int BinaryDiscovery::GetAllBinaries(
 	return numPlugins;
 }
 
-int BinaryDiscovery::ParseOfxDirectory(
-	QDir dir, std::list<std::unique_ptr<Binary>> &outPlugins)
+int BinaryDiscovery::ParseOfxDirectory(QDir dir, BinaryList &outPlugins)
 {
-	// Navigate to the directory with ofx binaries.
-	dir.cd("Contents");
-	dir.cd(QString::fromStdString(archName));
+	int pluginCount = 0;
 
-	// Set proper filters to iterate only through .ofx binaries.
-	dir.setFilter(QDir::Files);
-	dir.setNameFilters(QStringList() << "*.ofx");
-
-	// Create an OFX::Binary for every valid ofx plugin.
-	QFileInfoList list = dir.entryInfoList();
-	for (QFileInfo fileInfo : list) {
-		std::unique_ptr<Binary> binaryPtr(
-			new Binary(fileInfo.absolutePath().toStdWString()));
-		outPlugins.push_back(binaryPtr);
+	// Get canonical path of this directory.
+	QString canonicalPath = dir.canonicalPath();
+	if (canonicalPath.isEmpty()) {
+		return 0;
 	}
 
-	return list.size();
+	// Iterate through all ofx.bundle subdirectories.
+	QDirIterator it(canonicalPath, QStringList() << "*.ofx.bundle",
+			QDir::Dirs);
+
+	while (it.hasNext()) {
+		QDir subdir(it.next());
+
+		// Navigate to the directory with ofx binaries.
+		subdir.cd("Contents");
+		subdir.cd(archName);
+
+		// Set proper filters to iterate only through .ofx binaries.
+		subdir.setFilter(QDir::Files);
+		subdir.setNameFilters(QStringList() << "*.ofx");
+
+		// Create an OFX::Binary for every valid ofx plugin.
+		QFileInfoList list = subdir.entryInfoList();
+		pluginCount += list.size();
+
+		for (QFileInfo fileInfo : list) {
+			qDebug() << "Discovered plugin" << fileInfo.absoluteFilePath();
+			auto binaryPtr = new Binary(fileInfo.absoluteFilePath());
+		}
+	}
+
+	return pluginCount;
+}
+
+void BinaryDiscovery::InitDefaultArchPath()
+{
+	// Sorry, but you really shouldn't be using 32bit systems in 2020.
+#ifdef Q_OS_WIN
+	archName = "Win64";
+	defaultPath = qEnvironmentVariable("CommonProgramFiles");
+	defaultPath.append("\\OFX");
+#elif Q_OS_MAC
+	// Host should also consider universal binaries for OSX but I have no way
+	// to test this. So we'll only have this for now.
+	archName = "MacOS-x86-64";
+	defaultPath = "/Library/OFX";
+#else // Linux
+	archName = "Linux-x86-64";
+	defaultPath = "/usr/OFX";
+#endif
 }
 }
