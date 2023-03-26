@@ -4,11 +4,11 @@
 #include <string>
 #include <QLibrary>
 
-#include "../openfx/ofxCore.h"
+#include <openfx/ofxCore.h>
 
-namespace OFX {
+namespace ofx {
 // Class representing OFX Plugin binary.
-class Binary {
+class PluginBinary {
 protected:
 	bool isHostSet = false;
 
@@ -22,8 +22,8 @@ protected:
 	std::list<OfxPlugin *> pluginCache;
 
 public:
-	Binary(const QString &binaryPath);
-	~Binary() = default;
+	PluginBinary(const QString &binaryPath);
+	~PluginBinary() = default;
 
 	// Path to the file.
 	const QString &getBinaryPath() const { return binaryPath; }

@@ -10,32 +10,22 @@
 #include <list>
 #include <memory>
 #include <string>
-
 #include <qdir.h>
 
-#include "ofxBinary.h"
+#include "PluginBinary.h"
 
-namespace OFX {
+namespace ofx {
 class BinaryDiscovery {
-public:
-	using BinaryList = std::list<std::unique_ptr<Binary>>;
-
 private:
-	const QString env_ofxPluginPath = "OFX_PLUGIN_PATH";
-
-	// We need to initialize this dynamically because of Windows.
-	QString archName;
-	QString defaultPath;
 	QStringList pathsToConsider;
 
 public:
 	BinaryDiscovery();
 
 	void AddPath(const std::wstring &path);
-	int GetAllBinaries(BinaryList &outPlugins);
+	int GetAllBinaries(std::list<std::unique_ptr<PluginBinary>> &outPlugins);
 
 private:
-	int ParseOfxDirectory(QDir dir, BinaryList &outPlugins);
-	void InitDefaultArchPath();
+	int ParseOfxDirectory(QDir dir, std::list<std::unique_ptr<PluginBinary>> &outPlugins);
 };
 }

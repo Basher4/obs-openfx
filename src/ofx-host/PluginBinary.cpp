@@ -1,9 +1,8 @@
-#include "ofxBinary.h"
+#include "PluginBinary.h"
 
-namespace OFX {
-Binary::Binary(const QString& binaryPath) :
-	binaryPath(binaryPath),
-	library(binaryPath)
+namespace ofx {
+PluginBinary::PluginBinary(const QString &binaryPath)
+	: binaryPath(binaryPath), library(binaryPath)
 {
 	// OfxSetHost isn't defined in older versions of the API (pre-2020).
 	fn_OfxSetHost = library.resolve("OfxSetHost");
@@ -15,7 +14,7 @@ Binary::Binary(const QString& binaryPath) :
 	assert(fn_OfxGetNumberOfPlugins != nullptr);
 }
 
-OfxStatus Binary::OfxSetHost(const OfxHost *host)
+OfxStatus PluginBinary::OfxSetHost(const OfxHost *host)
 {
 	using fnType = OfxStatus (*)(const OfxHost *);
 
@@ -27,7 +26,7 @@ OfxStatus Binary::OfxSetHost(const OfxHost *host)
 	return reinterpret_cast<fnType>(fn_OfxSetHost)(host);
 }
 
-int Binary::OfxGetNumberOfPlugins()
+int PluginBinary::OfxGetNumberOfPlugins()
 {
 	using fnType = int (*)();
 
@@ -35,7 +34,7 @@ int Binary::OfxGetNumberOfPlugins()
 	return reinterpret_cast<fnType>(fn_OfxGetNumberOfPlugins)();
 }
 
-OfxPlugin *Binary::OfxGetPlugin(int n)
+OfxPlugin *PluginBinary::OfxGetPlugin(int n)
 {
 	using fnType = OfxPlugin *(*)(int);
 
@@ -43,7 +42,7 @@ OfxPlugin *Binary::OfxGetPlugin(int n)
 	return reinterpret_cast<fnType>(fn_OfxGetPlugin)(n);
 }
 
-const std::list<OfxPlugin*> &Binary::GetAllPlugins()
+const std::list<OfxPlugin *> &PluginBinary::GetAllPlugins()
 {
 	assert(isHostSet);
 
@@ -60,4 +59,4 @@ const std::list<OfxPlugin*> &Binary::GetAllPlugins()
 
 	return pluginCache;
 }
-};
+}; // namespace

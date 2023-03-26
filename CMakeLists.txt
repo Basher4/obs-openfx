@@ -12,43 +12,27 @@ set_target_properties(obs-openfx PROPERTIES FOLDER "plugins")
 
 set(MODULE_DESCRIPTION "OBS OpenFX Host")
 
-set(obs-openfx_SOURCES
-    src/obs-openfx.c
-    src/ofx-obs/ofx-source.cpp
-    src/ofx-host/ofxBinary.cpp
-    src/ofx-host/ofxBinaryDiscovery.cpp
+set(obs-openfx_PLUGIN_SRC
+    src/logging.h
+    src/names.h
+    src/obs-openfx.cpp
 )
 
-set(obs-openfx_HEADERS
-    src/ofx-obs/ofx-source.h
-    src/ofx-host/ofxBinary.h
-    src/ofx-host/ofxBinaryDiscovery.h
- )
+file(GLOB OFX_HEADER_FILES "include/openfx/*.h")
+source_group("Header Files\\openfx" FILES ${OFX_HEADER_FILES})
 
-set(obs-openfx_OFX_HEADERS
-    include/openfx/ofxCore.h
-    include/openfx/ofxDialog.h
-    include/openfx/ofxImageEffect.h
-    include/openfx/ofxInteract.h
-    include/openfx/ofxKeySyms.h
-    include/openfx/ofxMemory.h
-    include/openfx/ofxMessage.h
-    include/openfx/ofxMultiThread.h
-    include/openfx/ofxOld.h
-    include/openfx/ofxOpenGLRender.h
-    include/openfx/ofxParam.h
-    include/openfx/ofxParametricParam.h
-    include/openfx/ofxPixels.h
-    include/openfx/ofxProgress.h
-    include/openfx/ofxProperty.h
-    include/openfx/ofxTimeLine.h
-)
+file(GLOB obs-openfx_SOURCES "src/ofx-host/*.cpp")
+source_group("Source Files\\ofx-host" FILES ${obs-openfx_SOURCES})
+
+file(GLOB obs-openfx_HEADERS "src/ofx-host/*.h")
+source_group("Header Files\\ofx-host" FILES ${obs-openfx_HEADERS})
 
 target_include_directories(obs-openfx PRIVATE include)
 target_sources(obs-openfx PRIVATE
+    ${obs-openfx_PLUGIN_SRC}
     ${obs-openfx_SOURCES}
     ${obs-openfx_HEADERS}
-    ${obs-openfx_OFX_HEADERS}
+    ${OFX_HEADER_FILES}
 )
 
 target_compile_definitions(
