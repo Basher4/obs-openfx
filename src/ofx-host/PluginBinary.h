@@ -1,6 +1,6 @@
 #pragma once
 
-#include <list>
+#include <vector>
 #include <string>
 #include <QLibrary>
 
@@ -9,30 +9,34 @@
 namespace ofx {
 // Class representing OFX Plugin binary.
 class PluginBinary {
-protected:
-	bool isHostSet = false;
+public:
+	PluginBinary(const QString &binaryPath);
+	~PluginBinary() = default;
 
-	QLibrary library;
-	QString binaryPath;
+	const QString GetBinaryPath() const { return m_BinaryPath; }
+	const QString GetPluginIdentifier() const
+	{
+		return m_BinaryPath.split(".")[0];
+	}
+
+	void LoadBinary(const OfxHost *host);
+	const std::vector<OfxPlugin *> &GetPluginInfo();
+
+private:
+	OfxStatus OfxSetHost(const OfxHost *host);
+	int OfxGetNumberOfPlugins();
+	OfxPlugin *OfxGetPlugin(int n);
+
+protected:
+	bool m_IsHostSet = false;
+
+	QLibrary m_Library;
+	QString m_BinaryPath;
 
 	QFunctionPointer fn_OfxSetHost;
 	QFunctionPointer fn_OfxGetNumberOfPlugins;
 	QFunctionPointer fn_OfxGetPlugin;
 
-	std::list<OfxPlugin *> pluginCache;
-
-public:
-	PluginBinary(const QString &binaryPath);
-	~PluginBinary() = default;
-
-	// Path to the file.
-	const QString &getBinaryPath() const { return binaryPath; }
-
-	// Exported functions.
-	OfxStatus OfxSetHost(const OfxHost *host);
-	int OfxGetNumberOfPlugins();
-	OfxPlugin *OfxGetPlugin(int n);
-
-	const std::list<OfxPlugin *> &GetAllPlugins();
+	std::vector<OfxPlugin *> m_PluginCache;
 };
 };
