@@ -1,6 +1,8 @@
 #include "ofx-host/suites/ImageEffect.h"
 
+#include "ofx-host/image-effect/ImageEffectBase.h"
 #include "ofx-host/image-effect/ImageEffectInstance.h"
+#include "ofx-host/image-effect/ImageEffectPlugin.h"
 
 using namespace ofx;
 using namespace ofx::suites::v1;
@@ -11,9 +13,9 @@ OfxStatus ImageEffectSuite::SFN_getPropertySet(OfxImageEffectHandle imageEffect,
 	if (imageEffect == nullptr)
 		return kOfxStatErrBadHandle;
 
-	const auto inst = reinterpret_cast<image_effect::ImageEffectInstance *>(imageEffect);
-	*propHandle =
-		reinterpret_cast<OfxPropertySetHandle>(&inst->m_PropertySet);
+	const auto inst =
+		reinterpret_cast<image_effect::ImageEffectBase *>(imageEffect);
+	*propHandle = inst->GetPropertySet();
 
 	return kOfxStatOK;
 }
@@ -24,8 +26,9 @@ OfxStatus ImageEffectSuite::SFN_getParamSet(OfxImageEffectHandle imageEffect,
 	if (imageEffect == nullptr)
 		return kOfxStatErrBadHandle;
 
-	const auto inst = reinterpret_cast<PluginInstance *>(imageEffect);
-	*paramSet = reinterpret_cast<OfxParamSetHandle>(&inst->m_ParameterSet);
+	const auto inst =
+		reinterpret_cast<image_effect::ImageEffectBase *>(imageEffect);
+	*paramSet = inst->GetParameterSet();
 
 	return kOfxStatOK;
 }
@@ -36,7 +39,6 @@ OfxStatus ImageEffectSuite::SFN_clipDefine(OfxImageEffectHandle imageEffect,
 {
 	if (imageEffect == nullptr)
 		return kOfxStatErrBadHandle;
-
-	const auto inst = reinterpret_cast<PluginInstance *>(imageEffect);
-	inst->
+	
+	return kOfxStatErrFatal;
 }

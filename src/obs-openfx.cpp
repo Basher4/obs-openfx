@@ -8,8 +8,11 @@
 #include "logging.h"
 #include "names.h"
 
-const char *SETTING_AVAILABLE_PLUGINS =
-	"ofx.availPlugins";
+const char *SETTING_AVAILABLE_PLUGINS = "ofx.availPlugins";
+
+ofx::Host *g_Host;
+ofx::PluginCache *g_PluginCache;
+
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-openfx", "en-US")
@@ -25,15 +28,13 @@ MODULE_EXPORT const char *obs_module_name(void)
 
 static obs_source_frame *filter_video(void *data, obs_source_frame *frame)
 {
-	ofx::Host *host = reinterpret_cast<ofx::Host *>(data);
-
-	host->OnNewFrame(frame);
-	return host->GetProcessedFrame().value_or(nullptr);
+	g_Host->OnNewFrame(frame);
+	return g_Host->GetProcessedFrame().value_or(nullptr);
 }
 
 static obs_properties_t *get_properties(void *data)
 {
-	ofx::Host *host = reinterpret_cast<ofx::Host *>(data);
+	const auto host = static_cast<ofx::Host *>(data);
 	obs_properties_t *props = obs_properties_create();
 	obs_properties_t *pluginGrp = obs_properties_create();
 
@@ -44,31 +45,32 @@ static obs_properties_t *get_properties(void *data)
 
 	obs_property_set_modified_callback2(
 		plugins_list,
-		[](void *priv, obs_properties_t *props, obs_property_t *property,
-		   obs_data_t *settings) -> bool {
-			ofx::Host *ofxHost = reinterpret_cast<ofx::Host*>(priv);
-			const char *plugin_ident = obs_data_get_string(
+		[](void *priv, obs_properties_t *props,
+		   obs_property_t *property, obs_data_t *settings) -> bool {
+			auto *ofxHost = static_cast<ofx::Host *>(priv);
+			long long plugAddr = obs_data_get_int(
 				settings, SETTING_AVAILABLE_PLUGINS);
-
-			ofxHost->LoadPlugin(plugin_ident);
+			auto *plugin = reinterpret_cast<
+				ofx::image_effect::ImageEffectPlugin *>(
+				plugAddr);
 
 			//TODO: Build the plugin UI and hook it up to the host.
 
 			return true;
-		}, data);
+		},
+		data);
 
-	for (const auto &binary : host->GetPluginBinaries()) {
-		for (const auto &plugin : binary->GetPluginInfo()) {
-			QString info = QString::asprintf(
-				"[%s] %s (%d.%d)", plugin->pluginApi,
-				plugin->pluginIdentifier,
-				plugin->pluginVersionMajor,
-				plugin->pluginVersionMinor);
+	for (const auto plugin : g_PluginCache->GetAllPlugins()) {
+		const OfxPlugin *ofx_plugin = plugin->GetOfxPlugin();
+		QString info = QString::asprintf(
+			"[%s] %s (%d.%d)", ofx_plugin->pluginApi,
+			ofx_plugin->pluginIdentifier,
+			ofx_plugin->pluginVersionMajor,
+			ofx_plugin->pluginVersionMinor);
 
-			obs_property_list_add_string(plugins_list,
-						     info.toLocal8Bit().data(),
-						     plugin->pluginIdentifier);
-		}
+		obs_property_list_add_int(plugins_list,
+		                          info.toLocal8Bit().data(),
+		                          reinterpret_cast<long long>(plugin));
 	}
 
 	obs_properties_add_group(props, "pluginGrp", "Plugin interface",
@@ -79,7 +81,7 @@ static obs_properties_t *get_properties(void *data)
 
 bool obs_module_load(void)
 {
-	struct obs_source_info ofx_filter = {};
+	obs_source_info ofx_filter = {};
 
 	ofx_filter.id = "ofx_host";
 	ofx_filter.type = OBS_SOURCE_TYPE_FILTER;
@@ -87,11 +89,13 @@ bool obs_module_load(void)
 	ofx_filter.get_name = [](void *) { return "OpenFX Host"; };
 	ofx_filter.get_properties = get_properties;
 	ofx_filter.create = [](obs_data_t *settings, obs_source_t *context) {
-		return reinterpret_cast<void *>(new ofx::Host());
+		g_Host = new ofx::Host();
+		g_PluginCache = new ofx::PluginCache(g_Host->GetOfxHostStruct());
+		g_PluginCache->Rescan();
+
+		return static_cast<void *>(nullptr);
 	};
-	ofx_filter.destroy = [](void *host) {
-		delete reinterpret_cast<ofx::Host *>(host);
-	};
+	ofx_filter.destroy = [](void *host) { };
 	ofx_filter.update = [](void *data, obs_data_t *settings) {};
 	ofx_filter.filter_video = filter_video;
 	ofx_filter.filter_remove = [](void *data, obs_source_t *source) {};

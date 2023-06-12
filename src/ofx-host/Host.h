@@ -1,15 +1,16 @@
 #pragma once
 
-#include <chrono>
-#include <optional>
-#include <queue>
-
 #include <obs.h>
+#include <optional>
+#include <QQueue>
 
 #include "openfx/ofxCore.h"
 
-#include "PluginCache.h"
-#include "PluginInstance.h"
+#include "ofx-host/PluginCache.h"
+#include "ofx-host/suites/Param.h"
+#include "ofx-host/suites/Property.h"
+#include "ofx-host/image-effect/ImageEffectInstance.h"
+#include "ofx-host/image-effect/ImageEffectPlugin.h"
 
 namespace ofx {
 class Host {
@@ -20,38 +21,33 @@ public:
 	void OnNewFrame(obs_source_frame *frame);
 	std::optional<obs_source_frame *> GetProcessedFrame();
 
-	const std::vector<std::unique_ptr<PluginBinary>> &
-	GetPluginBinaries() const
-	{
-		return m_PluginCache.GetAllBinaries();
-	}
-	void LoadPlugin(const std::string_view identifier);
+	void SetActiveInstance(const image_effect::ImageEffectInstance *plugin);
+
+	const OfxHost &GetOfxHostStruct() const { return m_OfxHost; }
 
 private:
-	static const void *SFN_FetchSuite(OfxPropertySetHandle host,
-					  const char *suiteName,
-					  int suiteVersion)
+	static const void *sfn_fetch_suite(OfxPropertySetHandle handle,
+					   const char *suiteName,
+					   int suiteVersion)
 	{
-		return reinterpret_cast<Host *>(host)->FetchSuite(suiteName,
-								  suiteVersion);
+		const auto *inst = reinterpret_cast<Host *>(handle);
+		return inst->FetchSuite(suiteName, suiteVersion);
 	}
+	const void *FetchSuite(const char *suiteName, int suiteVersion) const;
 
-	const void *FetchSuite(const char *suiteName, int suiteVersion);
+	void InitializeOfxHostProperties();
 
-	// These two really should take plugin as an argument. But then I need to keep track
-	// of the active plugin anyway. And I do I want to make another meta object to manage
-	// plugin instances? That might be a good idea. I might need to do that anyway, to manage
-	// property sets. But for now, this is it.
 	void InitializeActivePlugin();
 	void FinalizeLoadedPlugin();
 
 private:
-	OfxHost m_OfxHost;
-	PluginCache m_PluginCache;
-	const OfxPlugin *m_ActivePlugin;
-	PluginInstance m_ActiveInstance;
+	OfxHost m_OfxHost{};
+
+	suites::v1::PropertySet m_HostProperties;
+
+	image_effect::ImageEffectInstance *m_ActiveInstance{};
 
 	uint64_t m_PrevFrameTimestamp = 0;
-	std::queue<obs_source_frame *> m_FrameQueue;
+	QQueue<obs_source_frame *> m_FrameQueue;
 };
 }

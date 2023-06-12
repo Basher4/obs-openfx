@@ -1,21 +1,20 @@
 #include <chrono>
-#include <cmath>
 
-#include <openfx/ofxImageEffect.h>
-#include <openfx/ofxProperty.h>
-#include <openfx/ofxParam.h>
-#include <openfx/ofxMemory.h>
-#include <openfx/ofxMultiThread.h>
+#include "openfx/ofxImageEffect.h"
+#include "openfx/ofxMemory.h"
+#include "openfx/ofxMultiThread.h"
+#include "openfx/ofxOpenGLRender.h"
+#include "openfx/ofxParam.h"
+#include "openfx/ofxParametricParam.h"
+#include "openfx/ofxProperty.h"
 
-#include "Host.h"
-#include "PluginCache.h"
-#include "../logging.h"
+#include "ofx-host/Host.h"
+#include "ofx-host/PluginCache.h"
 
-#include "suites/ImageEffect.h"
-#include "suites/Property.h"
-#include "suites/Param.h"
-#include "suites/Memory.h"
-#include "suites/Multithread.h"
+#include "ofx-host/suites/Memory.h"
+#include "ofx-host/suites/Multithread.h"
+#include "ofx-host/suites/Param.h"
+#include "ofx-host/suites/Property.h"
 
 std::tuple<uint8_t, uint8_t, uint8_t> yuv2rgb_r(uint8_t y, uint8_t u, uint8_t v)
 {
@@ -43,9 +42,15 @@ obs_source_frame *create_rgba_from_yuv422_frame(obs_source_frame *yuv_frame)
 	for (size_t y = 0; y < yuv_frame->height; y++) {
 		for (size_t x = 0; x < yuv_frame->width; x++) {
 			size_t idx = y * rgb_frame->linesize[0] + 4 * x;
-			rgb_frame->data[0][idx + 0] = yuv_frame->data[0][y * yuv_frame->linesize[0] + x];
-			rgb_frame->data[0][idx + 1] = yuv_frame->data[0][y * yuv_frame->linesize[0] + x];
-			rgb_frame->data[0][idx + 2] = yuv_frame->data[0][y * yuv_frame->linesize[0] + x];
+			rgb_frame->data[0][idx + 0] =
+				yuv_frame->data[0]
+					       [y * yuv_frame->linesize[0] + x];
+			rgb_frame->data[0][idx + 1] =
+				yuv_frame->data[0]
+					       [y * yuv_frame->linesize[0] + x];
+			rgb_frame->data[0][idx + 2] =
+				yuv_frame->data[0]
+					       [y * yuv_frame->linesize[0] + x];
 			rgb_frame->data[0][idx + 3] = 255;
 
 			rgb_frame->data[0][idx + (y / 360)] = 255;
@@ -59,11 +64,10 @@ obs_source_frame *create_rgba_from_yuv422_frame(obs_source_frame *yuv_frame)
 
 ofx::Host::Host()
 {
-	m_OfxHost.host = reinterpret_cast<OfxPropertySetHandle>(this);
-	m_OfxHost.fetchSuite = SFN_FetchSuite;
-
-	m_PluginCache.Rescan();
-	m_PluginCache.InitializeAllPlugins(m_OfxHost);
+	m_OfxHost.host =
+		reinterpret_cast<OfxPropertySetHandle>(&m_HostProperties);
+	m_OfxHost.fetchSuite = sfn_fetch_suite;
+	InitializeOfxHostProperties();
 }
 
 void ofx::Host::OnNewFrame(obs_source_frame *frame)
@@ -77,7 +81,8 @@ void ofx::Host::OnNewFrame(obs_source_frame *frame)
 	auto start = steady_clock::now();
 
 	obs_source_frame *rgb_frame = create_rgba_from_yuv422_frame(frame);
-	obs_source_frame_destroy(frame); frame = nullptr;
+	obs_source_frame_destroy(frame);
+	frame = nullptr;
 
 	auto end = steady_clock::now();
 
@@ -87,40 +92,40 @@ void ofx::Host::OnNewFrame(obs_source_frame *frame)
 
 	m_PrevFrameTimestamp = rgb_frame->timestamp;
 
-	m_FrameQueue.push(rgb_frame);
+	m_FrameQueue.enqueue(rgb_frame);
 }
 
 std::optional<obs_source_frame *> ofx::Host::GetProcessedFrame()
 {
 	if (!m_FrameQueue.empty()) {
-		auto frame = m_FrameQueue.front();
-		m_FrameQueue.pop();
-		return frame;
+		return m_FrameQueue.dequeue();
 	}
 
 	return std::nullopt;
 }
 
-void ofx::Host::LoadPlugin(const std::string_view identifier)
+void ofx::Host::SetActiveInstance(const ofx::image_effect::ImageEffectInstance *plugin)
 {
-	auto pluginOpt = m_PluginCache.GetPluginByIdentifier(identifier.data());
-	if (!pluginOpt.has_value()) {
-		ofx_info("Cannot find plugin %s", identifier);
-		return;
-	}
-
-	if (m_ActivePlugin != nullptr) {
-		ofx_info("Unloading %s", m_ActivePlugin->pluginIdentifier);
-		FinalizeLoadedPlugin();
-	}
-
-	ofx_info("About to load %s", identifier);
-	m_ActivePlugin = pluginOpt.value();
-
-	InitializeActivePlugin();
+	// auto plugin_opt =
+	// 	m_PluginCache.GetPluginByIdentifier(identifier.data());
+	// if (!plugin_opt.has_value()) {
+	// 	ofx_info("Cannot find plugin %s", identifier);
+	// 	return;
+	// }
+	//
+	// if (m_ActivePlugin != nullptr) {
+	// 	ofx_info("Unloading %s", m_ActivePlugin->pluginIdentifier);
+	// 	FinalizeLoadedPlugin();
+	// }
+	//
+	// ofx_info("About to load %s", identifier);
+	// m_ActivePlugin = plugin_opt.value();
+	//
+	// InitializeActivePlugin();
 }
 
-const void *ofx::Host::FetchSuite(const char *suiteName, int suiteVersion)
+const void *ofx::Host::FetchSuite(const char *suiteName,
+				   int suiteVersion) const
 {
 	using namespace ofx::suites;
 
@@ -128,39 +133,96 @@ const void *ofx::Host::FetchSuite(const char *suiteName, int suiteVersion)
 		return nullptr;
 
 	if (strcmp(suiteName, kOfxImageEffectSuite) == 0)
-		return nullptr;	// TODO: Implement suite.
+		return nullptr; // TODO: Implement suite.
 	if (strcmp(suiteName, kOfxPropertySuite) == 0)
 		return nullptr; // TODO: Implement suite.
 	if (strcmp(suiteName, kOfxParameterSuite) == 0)
-		return ParameterSuiteV1::GetSuiteDesc();
+		return v1::ParameterSuite::GetSuiteDesc();
 	if (strcmp(suiteName, kOfxMemorySuite) == 0)
-		return MemorySuiteV1::GetSuiteDesc();
+		return v1::MemorySuite::GetSuiteDesc();
 	if (strcmp(suiteName, kOfxMultiThreadSuite) == 0)
-		return MultiThreadSuiteV1::GetSuiteDesc();
+		return v1::MultiThreadSuite::GetSuiteDesc();
 
 	return nullptr;
 }
 
+void ofx::Host::InitializeOfxHostProperties()
+{
+	m_HostProperties.set_property(kOfxPropName, "github.basher4.OfxHost");
+	m_HostProperties.set_property(kOfxPropLabel, "OBS OpenFX Host");
+	m_HostProperties.set_property(kOfxPropVersion, {0, 0, 1});
+	m_HostProperties.set_property(kOfxPropVersionLabel, "0.0.1");
+	m_HostProperties.set_property(kOfxImageEffectHostPropIsBackground, 0);
+	m_HostProperties.set_property(kOfxImageEffectPropSupportsOverlays, 0);
+	m_HostProperties.set_property(
+		kOfxImageEffectPropSupportsMultiResolution, 0);
+	m_HostProperties.set_property(kOfxImageEffectPropSupportsTiles, 0);
+	m_HostProperties.set_property(kOfxImageEffectPropTemporalClipAccess, 0);
+	m_HostProperties.set_property(kOfxImageEffectPropSupportedComponents,
+				      {
+					      kOfxImageComponentNone,
+					      kOfxImageComponentRGB,
+					      kOfxImageComponentRGBA,
+					      kOfxImageComponentAlpha,
+				      });
+	m_HostProperties.set_property(kOfxImageEffectPropSupportedContexts,
+				      {// kOfxImageEffectContextGenerator,
+				       kOfxImageEffectContextFilter});
+	m_HostProperties.set_property(
+		kOfxImageEffectPropSupportsMultipleClipDepths, 0);
+	m_HostProperties.set_property(
+		kOfxImageEffectPropSupportsMultipleClipPARs, 0);
+	m_HostProperties.set_property(kOfxImageEffectPropSetableFrameRate, 0);
+	m_HostProperties.set_property(kOfxImageEffectPropSetableFielding, 0);
+	m_HostProperties.set_property(kOfxParamHostPropSupportsCustomInteract,
+				      0);
+	m_HostProperties.set_property(kOfxParamHostPropSupportsStringAnimation,
+				      0);
+	m_HostProperties.set_property(kOfxParamHostPropSupportsChoiceAnimation,
+				      0);
+	m_HostProperties.set_property(kOfxParamHostPropSupportsBooleanAnimation,
+				      0);
+	m_HostProperties.set_property(kOfxParamHostPropSupportsCustomAnimation,
+				      0);
+	m_HostProperties.set_property(kOfxParamHostPropMaxParameters, -1);
+	m_HostProperties.set_property(kOfxParamHostPropMaxPages, 0);
+	m_HostProperties.set_property(kOfxParamHostPropPageRowColumnCount,
+				      {0, 0});
+	m_HostProperties.set_property(kOfxPropHostOSHandle, nullptr);
+	m_HostProperties.set_property(
+		kOfxParamHostPropSupportsParametricAnimation, 0);
+	m_HostProperties.set_property(
+		kOfxImageEffectInstancePropSequentialRender,
+		0); // FIXME: Not true but sounds like more work than needed.
+	m_HostProperties.set_property(kOfxImageEffectPropOpenGLRenderSupported,
+				      0);
+	m_HostProperties.set_property(
+		kOfxImageEffectPropRenderQualityDraft,
+		0); // FIXME: This would be pretty simple to implement.
+	m_HostProperties.set_property(kOfxImageEffectHostPropNativeOrigin,
+				      kOfxHostNativeOriginTopLeft);
+}
+
 void ofx::Host::InitializeActivePlugin()
 {
-	assert(m_ActivePlugin != nullptr);
-	m_ActivePlugin->setHost(&m_OfxHost);
-
-	auto pluginMain = m_ActivePlugin->mainEntry;
-	pluginMain(kOfxActionLoad, &m_ActiveInstance, nullptr, nullptr);
-	pluginMain(kOfxActionDescribe, &m_ActiveInstance, nullptr, nullptr);
-	pluginMain(kOfxActionCreateInstance, &m_ActiveInstance, nullptr,
-		   nullptr);
+	// assert(m_ActivePlugin != nullptr);
+	// m_ActivePlugin->setHost(&m_OfxHost);
+	//
+	// auto pluginMain = m_ActivePlugin->mainEntry;
+	// pluginMain(kOfxActionLoad, &m_ActiveInstance, nullptr, nullptr);
+	// pluginMain(kOfxActionDescribe, &m_ActiveInstance, nullptr, nullptr);
+	// pluginMain(kOfxActionCreateInstance, &m_ActiveInstance, nullptr,
+	// 	   nullptr);
 }
 
 void ofx::Host::FinalizeLoadedPlugin()
 {
-	assert(m_ActivePlugin != nullptr);
-
-	auto pluginMain = m_ActivePlugin->mainEntry;
-	pluginMain(kOfxActionDestroyInstance, &m_ActiveInstance, nullptr,
-		   nullptr);
-	pluginMain(kOfxActionUnload, &m_ActiveInstance, nullptr, nullptr);
-
-	m_ActivePlugin = nullptr;
+	// assert(m_ActivePlugin != nullptr);
+	//
+	// auto pluginMain = m_ActivePlugin->mainEntry;
+	// pluginMain(kOfxActionDestroyInstance, &m_ActiveInstance, nullptr,
+	// 	   nullptr);
+	// pluginMain(kOfxActionUnload, &m_ActiveInstance, nullptr, nullptr);
+	//
+	// m_ActivePlugin = nullptr;
 }

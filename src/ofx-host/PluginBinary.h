@@ -1,10 +1,11 @@
 #pragma once
 
+#include <memory>
 #include <vector>
-#include <string>
 #include <QLibrary>
 
 #include <openfx/ofxCore.h>
+#include <ofx-host/image-effect/ImageEffectPlugin.h>
 
 namespace ofx {
 // Class representing OFX Plugin binary.
@@ -19,13 +20,13 @@ public:
 		return m_BinaryPath.split(".")[0];
 	}
 
-	void LoadBinary(const OfxHost *host);
-	const std::vector<OfxPlugin *> &GetPluginInfo();
+	bool LoadBinary(const OfxHost& host);
+	const std::vector<std::unique_ptr<image_effect::ImageEffectPlugin>> &GetPluginsInBinary();
 
 private:
-	OfxStatus OfxSetHost(const OfxHost *host);
-	int OfxGetNumberOfPlugins();
-	OfxPlugin *OfxGetPlugin(int n);
+	OfxStatus OfxSetHost(const OfxHost &host);
+	int OfxGetNumberOfPlugins() const;
+	OfxPlugin *OfxGetPlugin(int n) const;
 
 protected:
 	bool m_IsHostSet = false;
@@ -37,6 +38,6 @@ protected:
 	QFunctionPointer fn_OfxGetNumberOfPlugins;
 	QFunctionPointer fn_OfxGetPlugin;
 
-	std::vector<OfxPlugin *> m_PluginCache;
+	std::vector<std::unique_ptr<image_effect::ImageEffectPlugin>> m_PluginCache;
 };
 };

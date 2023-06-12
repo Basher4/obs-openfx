@@ -2,7 +2,7 @@
 
 namespace ofx {
 PluginBinary::PluginBinary(const QString &binaryPath)
-	: m_BinaryPath(binaryPath), m_Library(binaryPath)
+	: m_Library(binaryPath), m_BinaryPath(binaryPath)
 {
 	// OfxSetHost isn't defined in older versions of the API (pre-2020).
 	fn_OfxSetHost = m_Library.resolve("OfxSetHost");
@@ -14,17 +14,21 @@ PluginBinary::PluginBinary(const QString &binaryPath)
 	assert(fn_OfxGetNumberOfPlugins != nullptr);
 }
 
-void PluginBinary::LoadBinary(const OfxHost *host)
+bool PluginBinary::LoadBinary(const OfxHost &host)
 {
-	OfxSetHost(host);	// Atm I don't really care about the result.
+	const OfxStatus status = OfxSetHost(host);
+	if (status == kOfxStatFailed)
+		return false;
 
 	int numPlugins = OfxGetNumberOfPlugins();
 	m_PluginCache.reserve(numPlugins);
 
-	GetPluginInfo();
+	GetPluginsInBinary();
+
+	return true;
 }
 
-OfxStatus PluginBinary::OfxSetHost(const OfxHost* host)
+OfxStatus PluginBinary::OfxSetHost(const OfxHost &host)
 {
 	using fnType = OfxStatus (*)(const OfxHost *);
 
@@ -33,10 +37,10 @@ OfxStatus PluginBinary::OfxSetHost(const OfxHost* host)
 		return kOfxStatErrUnsupported;
 	}
 
-	return reinterpret_cast<fnType>(fn_OfxSetHost)(host);
+	return reinterpret_cast<fnType>(fn_OfxSetHost)(&host);
 }
 
-int PluginBinary::OfxGetNumberOfPlugins()
+int PluginBinary::OfxGetNumberOfPlugins() const
 {
 	using fnType = int (*)();
 
@@ -44,7 +48,7 @@ int PluginBinary::OfxGetNumberOfPlugins()
 	return reinterpret_cast<fnType>(fn_OfxGetNumberOfPlugins)();
 }
 
-OfxPlugin *PluginBinary::OfxGetPlugin(int n)
+OfxPlugin *PluginBinary::OfxGetPlugin(int n) const
 {
 	using fnType = OfxPlugin *(*)(int);
 
@@ -52,7 +56,8 @@ OfxPlugin *PluginBinary::OfxGetPlugin(int n)
 	return reinterpret_cast<fnType>(fn_OfxGetPlugin)(n);
 }
 
-const std::vector<OfxPlugin *> &PluginBinary::GetPluginInfo()
+const std::vector<std::unique_ptr<image_effect::ImageEffectPlugin>> &
+PluginBinary::GetPluginsInBinary()
 {
 	assert(m_IsHostSet);
 
@@ -64,7 +69,9 @@ const std::vector<OfxPlugin *> &PluginBinary::GetPluginInfo()
 	// Otherwise populate the cache.
 	int nPlugins = OfxGetNumberOfPlugins();
 	for (int i = 0; i < nPlugins; i++) {
-		m_PluginCache.push_back(OfxGetPlugin(i));
+		OfxPlugin *ofx_plugin = OfxGetPlugin(i);
+		m_PluginCache.emplace_back(
+			new image_effect::ImageEffectPlugin(ofx_plugin));
 	}
 
 	return m_PluginCache;

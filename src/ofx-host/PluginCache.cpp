@@ -27,7 +27,7 @@ const QString OFX_PLUGIN_DEFAULT_PATH = "/usr/OFX/Plugins";
 const char *OFX_PLUGIN_ARCH = "Linux-x86-64";
 #endif
 
-PluginCache::PluginCache()
+PluginCache::PluginCache(const OfxHost &host) : m_OfxHost(host)
 {
 	QString ofxEnv =
 		qEnvironmentVariable(OFX_PLUGIN_ENVAR.toStdString().c_str());
@@ -68,53 +68,55 @@ void PluginCache::Rescan()
 			ParseOfxDirectory(subdir);
 		}
 	}
+
+	InitializeBinaries();
 }
 
-void PluginCache::InitializeAllPlugins(OfxHost &host)
-{
-	for (const auto &binary : m_PluginBinaries) {
-		binary->LoadBinary(&host);
-
-		for (const auto &plugin : binary->GetPluginInfo()) {
-			m_IdentToPluginMap.insert(
-				QString(plugin->pluginIdentifier), plugin);
-		}
-	}
-}
-
-std::optional<const OfxPlugin *>
-PluginCache::GetPluginByIdentifier(const char *ident, int majorVersion,
-				   int minorVersion) const
+std::optional<const image_effect::ImageEffectPlugin *>
+PluginCache::GetPluginByIdentifier(const char *ident, int major_version,
+				   int minor_version) const
 {
 	QString key(ident);
 	auto it = m_IdentToPluginMap.find(key);
 
-	OfxPlugin *plugin = nullptr;
+	std::optional<const image_effect::ImageEffectPlugin *> pluginOpt =
+		std::nullopt;
 	int maxFoundMajorVersion = -1;
 	int maxFoundMinorVersion = -1;
 
-	while (it != m_IdentToPluginMap.end() && it.key() == key) {
-		int plugMajVer = it.value()->pluginVersionMajor;
-		int plugMinVer = it.value()->pluginVersionMinor;
+	while (it != m_IdentToPluginMap.end() && it->first == key) {
+		int majorVer = it->second->GetOfxPlugin()->pluginVersionMajor;
+		int minorVer = it->second->GetOfxPlugin()->pluginVersionMinor;
 
-		if (majorVersion != -1 && majorVersion != plugMajVer)
+		if (major_version != -1 && major_version != majorVer)
 			continue;
 
-		if (maxFoundMajorVersion < plugMajVer) {
-			maxFoundMajorVersion = plugMajVer;
-			maxFoundMinorVersion = plugMinVer;
-			plugin = it.value();
+		if (maxFoundMajorVersion < majorVer) {
+			maxFoundMajorVersion = majorVer;
+			maxFoundMinorVersion = minorVer;
+			pluginOpt = std::make_optional(it->second);
 		}
 
-		if (maxFoundMinorVersion < plugMinVer) {
-			maxFoundMinorVersion = plugMinVer;
-			plugin = it.value();
+		if (maxFoundMinorVersion < minorVer) {
+			maxFoundMinorVersion = minorVer;
+			pluginOpt = std::make_optional(it->second);
 		}
 	}
 
-	if (plugin == nullptr)
-		return std::nullopt;
-	return std::make_optional(plugin);
+	return pluginOpt;
+}
+
+const std::vector<image_effect::ImageEffectPlugin *>
+PluginCache::GetAllPlugins() const
+{
+	std::vector<image_effect::ImageEffectPlugin *> result;
+	result.reserve(m_IdentToPluginMap.size());
+	
+	for (auto kvp: m_IdentToPluginMap) {
+		result.push_back(kvp.second);
+	}
+	
+	return result;
 }
 
 int PluginCache::ParseOfxDirectory(QDir dir)
@@ -141,10 +143,25 @@ int PluginCache::ParseOfxDirectory(QDir dir)
 
 	for (QFileInfo fileInfo : list) {
 		qDebug() << "Discovered plugin" << fileInfo.absoluteFilePath();
-		m_PluginBinaries.emplace_back(
-			new PluginBinary(fileInfo.absoluteFilePath()));
+		m_PluginBinaries.emplace_back(fileInfo.absoluteFilePath());
 	}
 
 	return pluginCount;
+}
+
+void PluginCache::InitializeBinaries()
+{
+	for (auto &binary : m_PluginBinaries) {
+		bool should_load = binary.LoadBinary(m_OfxHost);
+		if (!should_load)
+			continue;
+
+		for (const auto &plugin : binary.GetPluginsInBinary()) {
+
+			m_IdentToPluginMap.emplace(
+				plugin->GetPluginIdentQstring(), plugin.get());
+			plugin->Load(m_OfxHost);
+		}
+	}
 }
 }; // namespace
