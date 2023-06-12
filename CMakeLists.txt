@@ -12,31 +12,31 @@ set_target_properties(obs-openfx PROPERTIES FOLDER "plugins")
 
 set(MODULE_DESCRIPTION "OBS OpenFX Host")
 
-set(obs-openfx_PLUGIN_SRC
-    src/logging.h
-    src/names.h
-    src/obs-openfx.cpp
-)
-
 file(GLOB OFX_HEADER_FILES "include/openfx/*.h")
 source_group("Header Files\\openfx" FILES ${OFX_HEADER_FILES})
 
-file(GLOB obs-openfx_SOURCES "src/ofx-host/*.cpp")
-file(GLOB obs-openfx_HEADERS "src/ofx-host/*.h")
-source_group("Source Files\\ofx-host" FILES ${obs-openfx_SOURCES})
-source_group("Header Files\\ofx-host" FILES ${obs-openfx_HEADERS})
+file(GLOB obs-openfx_SOURCES "src/*.cpp")
+file(GLOB obs-openfx_HEADERS "src/*.h")
+source_group("Source Files" FILES ${obs-openfx_SOURCES})
+source_group("Header Files" FILES ${obs-openfx_HEADERS})
 
-file(GLOB obs-openfx-suites_SOURCES "src/ofx-host/suites/*.cpp")
-file(GLOB obs-openfx-suites_HEADERS "src/ofx-host/suites/*.h")
-source_group("Source Files\\ofx-host\\suites" FILES ${obs-openfx-suites_SOURCES})
-source_group("Header Files\\ofx-host\\suites" FILES ${obs-openfx-suites_HEADERS})
+file(GLOB obs-openfx-ofx_SOURCES "src/ofx/*.cpp")
+file(GLOB obs-openfx_ofx_HEADERS "src/ofx/*.h")
+source_group("Source Files\\ofx" FILES ${obs-openfx-ofx_SOURCES})
+source_group("Header Files\\ofx" FILES ${obs-openfx_ofx_HEADERS})
 
-file(GLOB obs-openfx-image-effect_SOURCES "src/ofx-host/image-effect/*.cpp")
-file(GLOB obs-openfx-image-effect_HEADERS "src/ofx-host/image-effect/*.h")
-source_group("Source Files\\ofx-host\\image-effect" FILES ${obs-openfx-image-effect_SOURCES})
-source_group("Header Files\\ofx-host\\image-effect" FILES ${obs-openfx-image-effect_HEADERS})
+file(GLOB obs-openfx-suites_SOURCES "src/ofx/suites/*.cpp")
+file(GLOB obs-openfx-suites_HEADERS "src/ofx/suites/*.h")
+source_group("Source Files\\ofx\\suites" FILES ${obs-openfx-suites_SOURCES})
+source_group("Header Files\\ofx\\suites" FILES ${obs-openfx-suites_HEADERS})
+
+file(GLOB obs-openfx-image-effect_SOURCES "src/ofx/image-effect/*.cpp")
+file(GLOB obs-openfx-image-effect_HEADERS "src/ofx/image-effect/*.h")
+source_group("Source Files\\ofx\\image-effect" FILES ${obs-openfx-image-effect_SOURCES})
+source_group("Header Files\\ofx\\image-effect" FILES ${obs-openfx-image-effect_HEADERS})
 
 set(obs-openfx_PROJECT_FILES ${obs-openfx_SOURCES} ${obs-openfx_HEADERS}
+                             ${obs-openfx-ofx_SOURCES} ${obs-openfx_ofx_HEADERS}
                              ${obs-openfx-suites_SOURCES} ${obs-openfx-suites_HEADERS}
                              ${obs-openfx-image-effect_SOURCES} ${obs-openfx-image-effect_HEADERS})
 
