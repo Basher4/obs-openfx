@@ -1,5 +1,6 @@
 #include <obs-module.h>
 
+#include "logger.h"
 #include "ofx/host.h"
 #include "ofx/plugin-cache.h"
 
@@ -50,7 +51,7 @@ static obs_properties_t *get_properties(void *data)
 	//	},
 	//	data);
 
-	//for (const auto plugin : g_PluginCache->GetAllPlugins()) {
+	//for (const auto plugin : g_PluginCache->GetAllEffects()) {
 	//	const OfxPlugin *ofx_plugin = plugin->GetOfxPlugin();
 	//	QString info = QString::asprintf(
 	//		"[%s] %s (%d.%d)", ofx_plugin->pluginApi,
@@ -63,11 +64,16 @@ static obs_properties_t *get_properties(void *data)
 	//	                          reinterpret_cast<long long>(plugin));
 	//}
 
-	//obs_properties_add_group(props, "pluginGrp", "Plugin interface",
+	//obs_properties_add_group(props, "pluginGrp", "Effect interface",
 	//			 OBS_GROUP_NORMAL, pluginGrp);
 
 	//return props;
 	return nullptr;
+}
+
+const char *stringToPtr(const QString &str)
+{
+	return str.toLocal8Bit().data();
 }
 
 bool obs_module_load(void)
@@ -75,7 +81,6 @@ bool obs_module_load(void)
 	g_plugin_cache = new ofx::PluginCache;
 	g_host = new ofx::Host;
 
-	g_plugin_cache->Rescan();
 	g_plugin_cache->InitializePlugins(g_host->GetOfxStruct());
 
 	obs_source_info ofx_filter = {};
