@@ -71,16 +71,10 @@ static obs_properties_t *get_properties(void *data)
 	return nullptr;
 }
 
-const char *stringToPtr(const QString &str)
-{
-	return str.toLocal8Bit().data();
-}
-
 bool obs_module_load(void)
 {
 	g_plugin_cache = new ofx::PluginCache;
 	g_host = new ofx::Host;
-
 	g_plugin_cache->InitializePlugins(g_host->GetOfxStruct());
 
 	obs_source_info ofx_filter = {};
