@@ -44,6 +44,31 @@ PluginCache::~PluginCache()
 	// TODO: Finalize and unload all plugins.
 }
 
+void PrintPropertySet(suites::v1::PropertySet &prop_set)
+{
+	using suites::v1::PropertySet;
+	for (const auto &[name, type] : prop_set.GetDefinedProperties()) {
+		switch (type) {
+		case PropertySet::PropertyType::INT:
+			ofx_info("\t%-48s: %d", qPrintable(name),
+				 prop_set.GetInt(name).second);
+			break;
+		case PropertySet::PropertyType::DOUBLE:
+			ofx_info("\t%-48s: %f", qPrintable(name),
+				 prop_set.GetDouble(name).second);
+			break;
+		case PropertySet::PropertyType::STRING:
+			ofx_info("\t%-48s: \"%s\"", qPrintable(name),
+				 prop_set.GetString(name).second);
+			break;
+		case PropertySet::PropertyType::POINTER:
+			ofx_info("\t%-48s: %p", qPrintable(name),
+				 prop_set.GetPtr(name).second);
+			break;
+		}
+	}
+}
+
 void PluginCache::InitializePlugins(OfxHost *host)
 {
 	for (const auto &binary : available_binaries_) {
@@ -60,20 +85,21 @@ void PluginCache::InitializePlugins(OfxHost *host)
 			effect->FetchEffectParameters(
 				kOfxImageEffectContextFilter);
 
-			ofx_info("------------------------------------");
-			ofx_info("Registered properties for effect %s:",
+			ofx_info("---------- %s",
 				 qPrintable(effect->GetPluginIdentifier()));
-			for (auto &prop :
-			     effect->GetPropertySet().GetDefinedProperties()) {
-				ofx_info("%s", qPrintable(prop));
-			}
-			ofx_info("Registered parameters:");
-			for (auto &prop :
-			     effect->GetParameterSet().GetDefinedParameters()) {
-				ofx_info("%s", qPrintable(prop));
+			ofx_info(">>> Registered properties:");
+			PrintPropertySet(effect->GetPropertySet());
+
+			ofx_info(">>> Registered parameters:");
+			auto &param_set = effect->GetParameterSet();
+			for (auto &param : param_set.GetDefinedParameters()) {
+				ofx_info("%s", qPrintable(param));
+				suites::v1::PropertySet *param_props =
+					param_set.GetParameterByName(param)
+						.value();
+				PrintPropertySet(*param_props);
 			}
 			ofx_info("------------------------------------\n");
-
 		}
 	}
 
