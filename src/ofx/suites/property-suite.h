@@ -16,6 +16,9 @@
 namespace ofx::suites::v1 {
 class PropertySet {
 public:
+	enum class PropertyType { INT, DOUBLE, STRING, POINTER };
+
+public:
 	void Set(const QString &name, int value, int index = -1);
 	void Set(const QString &name, double value, int index = -1);
 	void Set(const QString &name, const std::string &value, int index = -1);
@@ -33,8 +36,9 @@ public:
 	QPair<OfxStatus, void *> GetPtr(const QString &name, int index = 0);
 
 	void Reset(const QString &name);
-	std::optional<int> GetDimension(const QString &name);
-	const QStringList &GetDefinedProperties() const;
+	[[nodiscard]] std::optional<int> GetDimension(const QString &name);
+	[[nodiscard]] const QList<QPair<QString, PropertyType>> &
+	GetDefinedProperties() const;
 
 	operator OfxPropertySetHandle()
 	{
@@ -50,11 +54,12 @@ public:
 private:
 	template<typename T>
 	void InsertScalar(QHash<QString, QList<T>> &hashset,
-			  const QString &name, const T value, int index = -1);
+			  const QString &name, const T value, PropertyType type,
+			  int index = -1);
 
 	template<typename T>
 	void InsertList(QHash<QString, QList<T>> &hashset, const QString &name,
-			std::initializer_list<T> value);
+			PropertyType type, std::initializer_list<T> value);
 
 	template<typename T>
 	QPair<OfxStatus, T> GetProperty(const QHash<QString, QList<T>> &hashset,
@@ -68,7 +73,7 @@ private:
 	QHash<QString, QList<double>> doubles_{};
 	QHash<QString, QList<std::string>> strings_{};
 	QHash<QString, QList<void *>> pointers_{};
-	QStringList order_of_definition_;
+	QList<QPair<QString, PropertyType>> order_of_definition_;
 };
 
 class PropertySuite {

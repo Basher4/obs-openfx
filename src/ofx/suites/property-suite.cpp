@@ -3,44 +3,44 @@ using namespace ofx::suites::v1;
 
 void PropertySet::Set(const QString &name, const int value, const int index)
 {
-	InsertScalar(ints_, name, value, index);
+	InsertScalar(ints_, name, value, PropertyType::INT, index);
 }
 
 void PropertySet::Set(const QString &name, const double value, const int index)
 {
-	InsertScalar(doubles_, name, value, index);
+	InsertScalar(doubles_, name, value, PropertyType::DOUBLE, index);
 }
 
 void PropertySet::Set(const QString &name, const std::string &value,
 		      const int index)
 {
-	InsertScalar(strings_, name, value, index);
+	InsertScalar(strings_, name, value, PropertyType::STRING, index);
 }
 
 void PropertySet::Set(const QString &name, void *value, const int index)
 {
-	InsertScalar(pointers_, name, value, index);
+	InsertScalar(pointers_, name, value, PropertyType::POINTER, index);
 }
 
 void PropertySet::Set(const QString &name, std::initializer_list<int> values)
 {
-	InsertList(ints_, name, values);
+	InsertList(ints_, name, PropertyType::INT, values);
 }
 
 void PropertySet::Set(const QString &name, std::initializer_list<double> values)
 {
-	InsertList(doubles_, name, values);
+	InsertList(doubles_, name, PropertyType::DOUBLE, values);
 }
 
 void PropertySet::Set(const QString &name,
 		      std::initializer_list<std::string> values)
 {
-	InsertList(strings_, name, values);
+	InsertList(strings_, name, PropertyType::STRING, values);
 }
 
 void PropertySet::Set(const QString &name, std::initializer_list<void *> values)
 {
-	InsertList(pointers_, name, values);
+	InsertList(pointers_, name, PropertyType::POINTER, values);
 }
 
 QPair<OfxStatus, int> PropertySet::GetInt(const QString &name, int index)
@@ -93,17 +93,19 @@ std::optional<int> PropertySet::GetDimension(const QString &name)
 	return std::nullopt;
 }
 
-const QStringList & PropertySet::GetDefinedProperties() const
+const QList<QPair<QString, PropertySet::PropertyType>> &
+PropertySet::GetDefinedProperties() const
 {
 	return order_of_definition_;
 }
 
 template<typename T>
 void PropertySet::InsertScalar(QHash<QString, QList<T>> &hashset,
-			       const QString &name, const T value, int index)
+			       const QString &name, const T value,
+			       PropertyType type, int index)
 {
 	if (hashset.empty() || !hashset.contains(name))
-		order_of_definition_.append(name);
+		order_of_definition_.emplace_back(name, type);
 
 	if (index < 0)
 		index = static_cast<int>(hashset[name].size());
@@ -112,11 +114,11 @@ void PropertySet::InsertScalar(QHash<QString, QList<T>> &hashset,
 
 template<typename T>
 void PropertySet::InsertList(QHash<QString, QList<T>> &hashset,
-			     const QString &name,
+			     const QString &name, PropertyType type,
 			     std::initializer_list<T> value)
 {
 	if (hashset.empty() || !hashset.contains(name))
-		order_of_definition_.append(name);
+		order_of_definition_.emplace_back(name, type);
 
 	hashset[name].append(value);
 }
